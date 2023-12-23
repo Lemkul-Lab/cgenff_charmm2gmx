@@ -1,4 +1,4 @@
-# charmm2gmx_cgenff
+# cgenff_charmm2gmx
 Python scripts to convert CGenFF stream files to GROMACS format
 
 # Compatibility
