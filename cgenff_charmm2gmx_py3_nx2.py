@@ -980,7 +980,7 @@ class atomgroup:
 				self.coord[atomi][1] = ylp
 				self.coord[atomi][2] = zlp
 			f.write("%-6s%5d %-4s %-4s%5s%12.3f%8.3f%8.3f%6.2f%6.2f\n" %
-				("ATOM",atomi+1,self.G.node[atomi]['name'],name,self.G.node[atomi]['resid'],resid,self.coord[atomi][0],
+				("ATOM",atomi+1,self.G.node[atomi]['name'],resn,self.G.node[atomi]['resid'],self.coord[atomi][0],
 				self.coord[atomi][1],self.coord[atomi][2],1.0,self.G.node[atomi]['beta']))
 		f.write("END\n")
 
