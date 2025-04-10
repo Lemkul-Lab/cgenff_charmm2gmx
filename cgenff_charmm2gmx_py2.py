@@ -807,15 +807,15 @@ class atomgroup:
 					# find the LP attached to this host, not necessarily consecutive
 					# in the topology
 					j = find_vsite(self, i)
-					f.write("%5d %5d	 1\n" % (i+1,j+1) )
+					f.write("%5d %5d\n" % (i+1,j+1) )
 			# first neighbors: 1-2
 			for i,j in self.G.edges_iter():
 				if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
 					k = find_vsite(self, i)
-					f.write("%5d %5d	 1\n" % (k+1,j+1) )
+					f.write("%5d %5d\n" % (k+1,j+1) )
 				if ((is_lp_host_atom(self,self.G.node[j]['name'])==True)):
 					k = find_vsite(self, j)
-					f.write("%5d %5d	 1\n" % (k+1,i+1) )
+					f.write("%5d %5d\n" % (k+1,i+1) )
 			# second neighbors: 1-3
 			for var in self.angles:
 				# only need to consider ends of the angle, not middle atom
@@ -823,18 +823,18 @@ class atomgroup:
 				ak = var[2]
 				if ((is_lp_host_atom(self,self.G.node[ai]['name'])==True)):
 					l = find_vsite(self, ai)
-					f.write("%5d %5d	 1\n" % (l+1,ak+1) )
+					f.write("%5d %5d\n" % (l+1,ak+1) )
 				if ((is_lp_host_atom(self,self.G.node[ak]['name'])==True)):
 					l = find_vsite(self, ak)
-					f.write("%5d %5d	 1\n" % (l+1,ai+1) )
+					f.write("%5d %5d\n" % (l+1,ai+1) )
 			# third neighbors: 1-4
 			for i,j in pairs14.edges_iter():
 				if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
 					k = find_vsite(self, i)
-					f.write("%5d %5d	 1\n" % (k+1,j+1) )
+					f.write("%5d %5d\n" % (k+1,j+1) )
 				if ((is_lp_host_atom(self,self.G.node[j]['name'])==True)):
 					k = find_vsite(self, j)
-					f.write("%5d %5d	 1\n" % (k+1,i+1) )
+					f.write("%5d %5d\n" % (k+1,i+1) )
 			f.write("\n")
 
 		f.close()
