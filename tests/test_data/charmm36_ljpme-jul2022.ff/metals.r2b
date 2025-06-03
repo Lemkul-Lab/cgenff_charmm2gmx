@@ -1,0 +1,8 @@
+; CHARMM-port for GROMACS
+; created with charmm2gmx version 0.7.dev45+g7b82040.d20221208 on 2022-12-08 11:52:57.463817
+; Code: https://gitlab.com/awacha/charmm2gmx
+; Documentation: https://awacha.gitlab.com/charmm2gmx
+; Charmm2GMX written by András Wacha, based on the original port by 
+; E. Prabhu Raman, Justin A. Lemkul, Robert Best and Alexander D. MacKerell, Jr.
+; Residue to rtp building block table
+;    PDB midchain    start      end     2ter

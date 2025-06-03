@@ -1,0 +1,26 @@
+#include "tests/test_data/charmm36_ljpme-jul2022.ff/forcefield.itp"
+
+; additional params for the molecule
+#include "jz4.prm"
+
+#include "jz4.itp"
+
+#include "tests/test_data/charmm36_ljpme-jul2022.ff/tip3p.itp"
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct		 fcx		fcy		   fcz
+   1	1		1000	   1000		  1000
+#endif
+
+; Include topology for ions
+#include "tests/test_data/charmm36_ljpme-jul2022.ff/ions.itp"
+
+[ system ]
+; Name
+mol
+
+[ molecules ]
+; Compound		  #mols
+JZ4			1
+
