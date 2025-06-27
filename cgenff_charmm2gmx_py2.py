@@ -807,15 +807,15 @@ class atomgroup:
 					# find the LP attached to this host, not necessarily consecutive
 					# in the topology
 					j = find_vsite(self, i)
-					f.write("%5d %5d	 1\n" % (i+1,j+1) )
+					f.write("%5d %5d\n" % (i+1,j+1) )
 			# first neighbors: 1-2
 			for i,j in self.G.edges_iter():
 				if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
 					k = find_vsite(self, i)
-					f.write("%5d %5d	 1\n" % (k+1,j+1) )
+					f.write("%5d %5d\n" % (k+1,j+1) )
 				if ((is_lp_host_atom(self,self.G.node[j]['name'])==True)):
 					k = find_vsite(self, j)
-					f.write("%5d %5d	 1\n" % (k+1,i+1) )
+					f.write("%5d %5d\n" % (k+1,i+1) )
 			# second neighbors: 1-3
 			for var in self.angles:
 				# only need to consider ends of the angle, not middle atom
@@ -823,18 +823,18 @@ class atomgroup:
 				ak = var[2]
 				if ((is_lp_host_atom(self,self.G.node[ai]['name'])==True)):
 					l = find_vsite(self, ai)
-					f.write("%5d %5d	 1\n" % (l+1,ak+1) )
+					f.write("%5d %5d\n" % (l+1,ak+1) )
 				if ((is_lp_host_atom(self,self.G.node[ak]['name'])==True)):
 					l = find_vsite(self, ak)
-					f.write("%5d %5d	 1\n" % (l+1,ai+1) )
+					f.write("%5d %5d\n" % (l+1,ai+1) )
 			# third neighbors: 1-4
 			for i,j in pairs14.edges_iter():
 				if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
 					k = find_vsite(self, i)
-					f.write("%5d %5d	 1\n" % (k+1,j+1) )
+					f.write("%5d %5d\n" % (k+1,j+1) )
 				if ((is_lp_host_atom(self,self.G.node[j]['name'])==True)):
 					k = find_vsite(self, j)
-					f.write("%5d %5d	 1\n" % (k+1,i+1) )
+					f.write("%5d %5d\n" % (k+1,i+1) )
 			f.write("\n")
 
 		f.close()
@@ -918,6 +918,10 @@ class atomgroup:
 			if(len(self.G.node[atomi]['name']) > 4):
 				print "error in atomgroup.write_pdb(): atom name > 4 characters"
 				exit()
+			if (len(self.name) > 4):
+				resn = self.name[:4]
+			else:
+				resn = self.name
 			## jal - construct LP sites
 			if (is_lp(self.G.node[atomi]['name'])):
 				# DEBUG
@@ -963,7 +967,7 @@ class atomgroup:
 				self.coord[atomi][1] = ylp
 				self.coord[atomi][2] = zlp
 			f.write("%-6s%5d %-4s %-4s%5s%12.3f%8.3f%8.3f%6.2f%6.2f\n" %
-				("ATOM",atomi+1,self.G.node[atomi]['name'],self.name,self.G.node[atomi]['resid'],self.coord[atomi][0],
+				("ATOM",atomi+1,self.G.node[atomi]['name'],resn,self.G.node[atomi]['resid'],self.coord[atomi][0],
 				self.coord[atomi][1],self.coord[atomi][2],1.0,self.G.node[atomi]['beta']))
 		f.write("END\n")
 
@@ -982,9 +986,9 @@ if(float(nx.__version__) > 1.11):
 	exit()
 
 if(sys.version_info > (3,0)):
-    print("You are using a Python version in the 3.x series. This script requires Python 2.x.")
-    print("Please visit http://mackerell.umaryland.edu/charmm_ff.shtml#gromacs to get a script for Python 3.x")
-    exit()
+	print("You are using a Python version in the 3.x series. This script requires Python 2.x.")
+	print("Please visit http://mackerell.umaryland.edu/charmm_ff.shtml#gromacs to get a script for Python 3.x")
+	exit()
 
 mol_name = sys.argv[1]
 mol2_name = sys.argv[2]

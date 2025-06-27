@@ -531,6 +531,7 @@ def write_gmx_mol_top(filename, ffdir, prmfile, itpfile, molname):
 
 #=================================================================================================================
 class atomgroup:
+ main
     """
     A class that contains the data structures and functions to store and process
     data related to groups of atoms (read molecules)
@@ -937,6 +938,465 @@ class atomgroup:
                      1.0,
                      self.G.nodes[atomi]['beta']))
         f.write("END\n")
+=======
+	"""
+	A class that contains the data structures and functions to store and process
+	data related to groups of atoms (read molecules)
+
+	USAGE: m = atomgroup()
+	"""
+
+	def __init__(self):
+		self.G = nx.Graph()
+		self.name = ""
+		self.natoms = 0
+		self.nvsites = 0
+		self.nbonds = 0
+		self.angles = []
+		self.nangles = 0
+		self.dihedrals = []
+		self.ndihedrals = 0
+		self.impropers = []
+		self.nimpropers = 0
+		#self.coord=np.zeros((self.natoms,3),dtype=float)
+
+	#-----------------------------------------------------------------------
+	def read_charmm_rtp(self,rtplines,atomtypes):
+		"""
+		Reads CHARMM rtp
+		Reads atoms, bonds, impropers
+		Stores connectivity as a graph
+		Autogenerates angles and dihedrals
+
+		USAGE: m = atomgroup() ; m.read_charmm_rtp(rtplines,atomtypes)
+
+		"""
+		#initialize everything
+		self.G = nx.Graph()
+		self.name = ""
+		self.natoms = 0
+		self.nvsites = 0
+		self.nbonds = 0
+		self.angles = []
+		self.nangles = 0
+		self.dihedrals = []
+		self.ndihedrals = 0
+		self.impropers = []
+		self.nimpropers = 0
+
+		atm = {}
+
+		for line in rtplines:
+			if line.find('!'):
+				line = line[:line.find('!')]
+
+				if line.startswith("RESI"):
+					entry = re.split('\s+', line.lstrip())
+					self.name=entry[1]
+
+				if line.startswith("ATOM"):
+					entry = re.split('\s+', line.lstrip())
+					atm[self.natoms] = {'type':entry[2], 'resname':self.name, 'name':entry[1],
+						  'charge':float(entry[3]),'mass':float(0.00), 'beta':float(0.0),
+							'x':float(9999.9999),'y':float(9999.9999),'z':float(9999.9999),'segid':self.name, 'resid':'1' }
+
+					for typei in atomtypes:
+						if(typei[0] == atm[self.natoms]['type']):
+							atm[self.natoms]['mass'] = float(typei[1])
+							break
+
+					#self.G.add_node(self.natoms, atm[self.natoms])
+					#@@@@@@@@@@@@@@ Conrard modification @@@@@@@@@@@
+					att = self.natoms # attribute
+					nodd = {att:atm[self.natoms]} # node to add
+					self.G.add_node(att) #instanciate the attribute
+					nx.set_node_attributes(self.G, nodd)
+					self.natoms=self.natoms+1
+
+				## jal - adding lone pair support
+				if line.startswith("LONE"):
+					#entry = re.split('\s+', line.rstrip(line.lstrip()))
+					entry = re.split('\s+', line.lstrip())
+					atm[self.nvsites] = {'vsite':entry[2], 'at1':entry[3], 'at2':entry[4],
+							'dist':(float(entry[6])*0.1),
+							'x':float(9999.9999),'y':float(9999.9999),'z':float(9999.9999) }
+					# DEBUG
+					# print "Found lone pair in RTF: %s %s %s %.3f\n" % (atm[self.nvsites]['vsite'], atm[self.nvsites]['at1'], atm[self.nvsites]['at2'], atm[self.nvsites]['dist'])
+
+					# jal - as above
+					att = self.nvsites
+					nodd = {att:atm[self.nvsites]}
+					self.G.add_node(att)
+					nx.set_node_attributes(self.G, nodd)
+					self.nvsites=self.nvsites+1
+
+				if line.startswith("BOND") or line.startswith("DOUB"):
+					#entry = re.split('\s+', line.rstrip(line.lstrip()))
+					entry = re.split('\s+', line.lstrip())
+					numbonds = int((len(entry)-1)/2)
+					for bondi in range(0,numbonds):
+						found1 = False
+						found2 = False
+						for i in range(0,self.natoms):
+							if(atm[i]['name'] == entry[(bondi*2)+1]):
+								found1 = True
+								break
+						for j in range(0,self.natoms):
+							if(atm[j]['name'] == entry[(bondi*2)+2]):
+								found2 = True
+								break
+						if(not found1):
+							print("Error:atomgroup:read_charmm_rtp> Atomname not found in top",entry[(bondi*2)+1])
+						if(not found2):
+							print("Error:atomgroup:read_charmm_rtp> Atomname not found in top",entry[(bondi*2)+2])
+						## jal - ignore "bonds" to lone pairs
+						if ((is_lp(atm[i]['name'])==False) and (is_lp(atm[j]['name'])==False)):
+							self.G.add_edge(i,j)
+							self.G[i][j]['order']='1' # treat all bonds as single for now
+							self.nbonds=self.nbonds+1
+
+				if line.startswith("IMP"):
+					entry = re.split('\s+', line.lstrip())
+					numimpr = int((len(entry)-2)/4)
+					for impi in range(0,numimpr):
+						for i in range(0,self.natoms):
+							if(atm[i]['name'] == entry[(impi*4)+1]):
+								break
+						for j in range(0,self.natoms):
+							if(atm[j]['name'] == entry[(impi*4)+2]):
+								break
+						for k in range(0,self.natoms):
+							if(atm[k]['name'] == entry[(impi*4)+3]):
+								break
+						for l in range(0,self.natoms):
+							if(atm[l]['name'] == entry[(impi*4)+4]):
+								break
+						var = [i,j,k,l]
+						self.impropers.append(var)
+
+		self.nimpropers = len(self.impropers)
+		if(self.ndihedrals > 0 or self.nangles > 0):
+			print("WARNING:atomgroup:read_charmm_rtp> Autogenerating angl-dihe even though they are preexisting",self.nangles,self.ndihedrals)
+		self.autogen_angl_dihe()
+		self.coord = np.zeros((self.natoms,3),dtype=float)
+#-----------------------------------------------------------------------
+	def autogen_angl_dihe(self):
+		self.angles = []
+		for atomi in range(0,self.natoms):
+			nblist = []
+			for nb in self.G.neighbors(atomi):
+				nblist.append(nb)
+			for i in range(0,len(nblist)-1):
+				for j in range(i+1,len(nblist)):
+					var = [nblist[i],atomi,nblist[j]]
+					self.angles.append(var)
+		self.nangles = len(self.angles)
+		self.dihedrals = []
+		for i,j in self.G.edges():
+			nblist1 = []
+			for nb in self.G.neighbors(i):
+				if(nb != j):
+					nblist1.append(nb)
+			nblist2 = []
+			for nb in self.G.neighbors(j):
+				if(nb != i):
+					nblist2.append(nb)
+			if(len(nblist1) > 0 and len(nblist2) > 0 ):
+				for ii in range(0,len(nblist1)):
+					for jj in range(0,len(nblist2)):
+						var = [nblist1[ii],i,j,nblist2[jj]]
+						if(var[0] != var[3]):
+							self.dihedrals.append(var)
+		self.ndihedrals = len(self.dihedrals)
+#-----------------------------------------------------------------------
+	def get_nonplanar_dihedrals(self,angl_params):
+		nonplanar_dihedrals=[]
+		cutoff=179.9
+		for var in self.dihedrals:
+			d1=self.G.node[var[0]]['type']
+			d2=self.G.node[var[1]]['type']
+			d3=self.G.node[var[2]]['type']
+			d4=self.G.node[var[3]]['type']
+			keep=1
+			for angl_param in angl_params:
+				p1=angl_param[0]
+				p2=angl_param[1]
+				p3=angl_param[2]
+				eq=angl_param[3]
+				if( d2==p2 and ( ( d1==p1 and d3==p3) or (d1==p3 and d3==p1))):
+					if(eq > cutoff):
+						keep=-1
+						break
+				if( d3==p2 and ( (d2==p1 and d4==p3) or (d2==p3 and d4==p1))):
+					if(eq > cutoff):
+						keep=-1
+						break
+
+			if(keep==1):
+				nonplanar_dihedrals.append(var)
+
+		return nonplanar_dihedrals
+#-----------------------------------------------------------------------
+	def write_gmx_itp(self,filename,angl_params):
+		f = open(filename, 'w')
+		f.write("; Created by cgenff_charmm2gmx.py\n")
+		f.write("\n")
+		f.write("[ moleculetype ]\n")
+		f.write("; Name			   nrexcl\n")
+		f.write("%s				 3\n" % self.name)
+		f.write("\n")
+		f.write("[ atoms ]\n")
+		f.write(";	 nr		  type	resnr residue  atom   cgnr	   charge		mass  typeB    chargeB		massB\n")
+		f.write("; residue	 1 %s rtp %s q	qsum\n" % (self.name,self.name))
+		pairs14 = nx.Graph()
+		for atomi in range(0,self.natoms):
+			pairs14.add_node(atomi)
+			f.write("%6d %10s %6s %6s %6s %6d %10.3f %10.3f   ;\n" %
+			   ( atomi+1,self.G.node[atomi]['type'],
+			   self.G.node[atomi]['resid'],self.name,self.G.node[atomi]['name'],atomi+1,
+			   self.G.node[atomi]['charge'],self.G.node[atomi]['mass'] ) )
+		f.write("\n")
+		f.write("[ bonds ]\n")
+		f.write(";	ai	  aj funct			  c0			c1			  c2			c3\n")
+		for i,j in self.G.edges():
+			#f.write("%5d %5d	 1\n" % (i+1,j+1) )
+			f.write("%5d %5d	 1 ;  %10s %10s\n" % (i+1,j+1,self.G.node[i]['type'],self.G.node[j]['type']) )
+		f.write("\n")
+		f.write("[ pairs ]\n")
+		f.write(";	ai	  aj funct			  c0			c1			  c2			c3\n")
+		for var in self.dihedrals:
+			if (len(nx.dijkstra_path(self.G,var[0],var[3])) == 4): #this is to remove 1-2 and 1-3 included in dihedrals of rings
+				pairs14.add_edge(var[0],var[3])
+		for i,j in pairs14.edges():
+			f.write("%5d %5d	 1\n" % (i+1,j+1) )
+			#f.write("%5d %5d	 1 ;  %10s %10s\n" % (i+1,j+1,self.G.node[i]['type'],self.G.node[j]['type']) )
+			## jal - add LP pairs, same as parent atom
+			## Use is_lp_host_atom() to test each index, then find associated vsite
+			if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
+				k = find_vsite(self, i)
+				f.write("%5d %5d	 1\n" % (k+1,j+1) )
+			if ((is_lp_host_atom(self,self.G.node[j]['name'])==True)):
+				k = find_vsite(self, j)
+				f.write("%5d %5d	 1\n" % (k+1,i+1) )
+		f.write("\n")
+		f.write("[ angles ]\n")
+		f.write(";	ai	  aj	ak funct			c0			  c1			c2			  c3\n")
+		for var in self.angles:
+			f.write("%5d %5d %5d	5 ; %10s %10s %10s\n" % (var[0]+1,var[1]+1,var[2]+1,\
+				self.G.node[var[0]]['type'],self.G.node[var[1]]['type'],self.G.node[var[2]]['type']) )
+		f.write("\n")
+		f.write("[ dihedrals ]\n")
+		f.write(";	ai	  aj	ak	  al funct			  c0			c1			  c2			c3			  c4			c5\n")
+		nonplanar_dihedrals=self.get_nonplanar_dihedrals(angl_params)
+		for var in nonplanar_dihedrals:
+			f.write("%5d %5d %5d %5d	 9 ; %10s %10s %10s %10s\n" % (var[0]+1,var[1]+1,var[2]+1,var[3]+1,\
+			self.G.node[var[0]]['type'],self.G.node[var[1]]['type'],self.G.node[var[2]]['type'],self.G.node[var[3]]['type']) )
+		f.write("\n")
+		if(self.nimpropers > 0):
+			f.write("[ dihedrals ]\n")
+			f.write(";	ai	  aj	ak	  al funct			  c0			c1			  c2			c3\n")
+			for var in self.impropers:
+				f.write("%5d %5d %5d %5d	 2\n" % (var[0]+1,var[1]+1,var[2]+1,var[3]+1) )
+			f.write("\n")
+		## jal - add vsite directive
+		## we use 2fd construction, introduced in GROMACS-2020
+		if (self.nvsites > 0):
+			func=2
+			f.write("[ virtual_sites2 ]\n")
+			f.write("; Site   from				funct a\n")
+			for atomi in range (0,self.nvsites):
+				vsite = 0
+				at1 = 0
+				at2 = 0
+				# find atom name matches
+				for ai in range (0, self.natoms):
+					if (self.G.node[ai]['name'] == self.G.node[atomi]['vsite']):
+						vsite = ai
+					if (self.G.node[ai]['name'] == self.G.node[atomi]['at1']):
+						at1 = ai
+					if (self.G.node[ai]['name'] == self.G.node[atomi]['at2']):
+						at2 = ai
+				dist=self.G.node[atomi]['dist']*-1	# invert sign for GROMACS convention
+				f.write("%5d %5d %5d %5d %8.3f\n" % (vsite+1, at1+1, at2+1, func, dist))
+			f.write("\n")
+
+		## jal - add exclusions for vsite
+		if (self.nvsites > 0):
+			f.write("[ exclusions ]\n")
+			f.write(";	ai	  aj\n")
+			## jal - explicitly add all 1-2, 1-3, and 1-4 exclusions
+			## for the lone pair, which are the same as 1-2, 1-3, 1-4
+			## exclusions for the host (bonds, angles, pairs)
+			# first, exclude any LP from its host
+			for i in range (0, self.natoms):
+				if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
+					# find the LP attached to this host, not necessarily consecutive
+					# in the topology
+					j = find_vsite(self, i)
+					f.write("%5d %5d\n" % (i+1,j+1) )
+			# first neighbors: 1-2
+			for i,j in self.G.edges():
+				if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
+					k = find_vsite(self, i)
+					f.write("%5d %5d\n" % (k+1,j+1) )
+				if ((is_lp_host_atom(self,self.G.node[j]['name'])==True)):
+					k = find_vsite(self, j)
+					f.write("%5d %5d\n" % (k+1,i+1) )
+			# second neighbors: 1-3
+			for var in self.angles:
+				# only need to consider ends of the angle, not middle atom
+				ai = var[0]
+				ak = var[2]
+				if ((is_lp_host_atom(self,self.G.node[ai]['name'])==True)):
+					l = find_vsite(self, ai)
+					f.write("%5d %5d\n" % (l+1,ak+1) )
+				if ((is_lp_host_atom(self,self.G.node[ak]['name'])==True)):
+					l = find_vsite(self, ak)
+					f.write("%5d %5d\n" % (l+1,ai+1) )
+			# third neighbors: 1-4
+			for i,j in pairs14.edges():
+				if ((is_lp_host_atom(self,self.G.node[i]['name'])==True)):
+					k = find_vsite(self, i)
+					f.write("%5d %5d\n" % (k+1,j+1) )
+				if ((is_lp_host_atom(self,self.G.node[j]['name'])==True)):
+					k = find_vsite(self, j)
+					f.write("%5d %5d\n" % (k+1,i+1) )
+			f.write("\n")
+
+		f.close()
+
+#-----------------------------------------------------------------------
+	def read_mol2_coor_only(self,filename):
+		check_natoms = 0
+		check_nbonds = 0
+		f = open(filename, 'r')
+		atm = {}
+		section="NONE"
+		for line in f.readlines():
+			secflag=False
+			if line.startswith("@"):
+				secflag=True
+				section="NONE"
+
+			if((section=="NATO") and (not secflag)):
+				entry = re.split('\s+', line.lstrip())
+				check_natoms=int(entry[0])
+				check_nbonds=int(entry[1])
+				if(check_natoms != self.natoms):
+					# jal - if there are lone pairs, these will not be in the mol2 file
+					if (self.nvsites == 0):
+						print("Error in atomgroup.py: read_mol2_coor_only: no. of atoms in mol2 (%d) and top (%d) are unequal" % (check_natoms, self.natoms))
+						print("Usually this means the specified residue name does not match between str and mol2 files")
+						#print check_natoms,self.natoms
+						exit()
+					else:
+						print("")
+						print("NOTE 5: %d lone pairs found in topology that are not in the mol2 file. This is not a problem, just FYI!\n" % (self.nvsites))
+				# jal - if we have correctly ignored bonds to LP then there is no need
+				# for any check here
+				if(check_nbonds != self.nbonds):
+					print("Error in atomgroup.py: read_mol2_coor_only: no. of bonds in mol2 (%d) and top (%d) are unequal" % (check_nbonds, self.nbonds))
+					#print check_nbonds,self.nbonds
+					exit()
+
+				section="NONE"
+
+			if((section=="MOLE") and (not secflag)):
+				self.name=line.strip()
+				section="NATO" #next line after @<TRIPOS>MOLECULE contains atom, bond numbers
+
+			if((section=="ATOM") and (not secflag)):
+				entry = re.split('\s+', line.lstrip())
+				## guard against blank lines
+				if (len(entry) > 1):
+					## jal - if there are lone pairs, these are not in mol2
+					## and are not necessarily something we can just tack on at the
+					## end of the coordinate section. Here, check the atom to see if it is
+					## the first constructing atom, and if so, we put in a dummy LP entry.
+					atomi = int(entry[0])-1
+					self.G.node[atomi]['x'] = float(entry[2])
+					self.G.node[atomi]['y'] = float(entry[3])
+					self.G.node[atomi]['z'] = float(entry[4])
+					self.coord[atomi][0] = float(entry[2])
+					self.coord[atomi][1] = float(entry[3])
+					self.coord[atomi][2] = float(entry[4])
+					## jal - if we have an atom that is the host for a LP, insert
+					## the LP into the list
+					if (is_lp_host_atom(self,self.G.node[atomi]['name'])):
+						atomj = find_vsite(self, atomi)
+						# insert dummy entry for LP
+						self.G.node[atomj]['x'] = float(9999.99)
+						self.G.node[atomj]['y'] = float(9999.99)
+						self.G.node[atomj]['z'] = float(9999.99)
+						self.coord[atomj][0] = float(9999.99)
+						self.coord[atomj][1] = float(9999.99)
+						self.coord[atomj][2] = float(9999.99)
+
+			if line.startswith("@<TRIPOS>MOLECULE"):
+				section="MOLE"
+			if line.startswith("@<TRIPOS>ATOM"):
+				section="ATOM"
+			if line.startswith("@<TRIPOS>BOND"):
+				section="BOND"
+#-----------------------------------------------------------------------
+	def write_pdb(self,f):
+		for atomi in range(0,self.natoms):
+			if(len(self.G.node[atomi]['name']) > 4):
+				print("error in atomgroup.write_pdb(): atom name > 4 characters")
+				exit()
+			if (len(self.name) > 4):
+				resn = self.name[:4]
+			else:
+				resn = self.name
+			## jal - construct LP sites
+			if (is_lp(self.G.node[atomi]['name'])):
+				# DEBUG
+				# print "Found LP in write_pdb: %s\n" % self.G.node[atomi]['name']
+				# find constructing atoms, get their coordinates and construction distance*10
+				atn1 = "dum"
+				atn2 = "dum"
+				dist = 0
+				# loop over vsites
+				for ai in range (0,self.nvsites):
+					if (self.G.node[ai]['vsite'] == self.G.node[atomi]['name']):
+						atn1 = self.G.node[ai]['at1']	 # atom name
+						atn2 = self.G.node[ai]['at2']	 # atom name
+						dist = self.G.node[ai]['dist']*10 # Angstrom for PDB, was saved as *0.1 for GMX
+
+				# get atom indices
+				at1 = 0
+				at2 = 0
+				for ai in range (0, self.natoms):
+					if (self.G.node[ai]['name'] == atn1):
+						at1 = ai
+					if (self.G.node[ai]['name'] == atn2):
+						at2 = ai
+
+				# in case of failure
+				if ((at1==0) and (at2==0)):
+					print("Failed to match LP-constructing atoms in write_pdb!\n")
+					exit()
+
+				# DEBUG
+				# print "Found LP in write_pdb: %d %s %s with dist: %.3f\n" % ((atomi+1,at1+1,at2+1,dist))
+
+				# at1, at2, and dist only exist in vsite structure!
+				x1=self.coord[at1][0]
+				y1=self.coord[at1][1]
+				z1=self.coord[at1][2]
+				x2=self.coord[at2][0]
+				y2=self.coord[at2][1]
+				z2=self.coord[at2][2]
+
+				xlp,ylp,zlp = construct_lp(x1,y1,z1,x2,y2,z2,dist)
+				self.coord[atomi][0] = xlp
+				self.coord[atomi][1] = ylp
+				self.coord[atomi][2] = zlp
+			f.write("%-6s%5d %-4s %-4s%5s%12.3f%8.3f%8.3f%6.2f%6.2f\n" %
+				("ATOM",atomi+1,self.G.node[atomi]['name'],resn,self.G.node[atomi]['resid'],self.coord[atomi][0],
+				self.coord[atomi][1],self.coord[atomi][2],1.0,self.G.node[atomi]['beta']))
+		f.write("END\n")
+ main
 
 #=================================================================================================================
 if (len(sys.argv) != 5):
