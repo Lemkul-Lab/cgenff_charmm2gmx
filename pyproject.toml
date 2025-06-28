@@ -1,0 +1,21 @@
+[project]
+name = "cgenff-charmm2gmx"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "networkx>=3.4.2",
+    "numpy>=2.2.6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-cov>=6.1.1",
+    "types-networkx>=3.4.2.20250527",
+]
+
+[tool.uv]
+default-groups = "all"
