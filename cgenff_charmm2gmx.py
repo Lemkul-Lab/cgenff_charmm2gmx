@@ -274,7 +274,7 @@ def parse_charmm_parameters(prmlines: list[str]):
             s = line.split()
             ai, aj, ak = s[0], s[1], s[2]
             other = tuple(map(float, s[3:]))
-            if len(other) != 3 or len(other) != 5:
+            if len(other) != 2 or len(other) != 4:
                 raise ValueError(
                     "ERROR: Incorrect number of values found in ANGL section"
                 )
