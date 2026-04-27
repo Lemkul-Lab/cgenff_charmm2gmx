@@ -98,9 +98,9 @@ def check_versions(str_filename: str, ffdoc_filename: str):
 	strver = 0	# CGenFF version in stream file
 	with open(str_filename, "r") as f:
 		for line in f:
-			if line.startswith("* For use with CGenFF version"):
+			if line.startswith("* For use with CGenFF topology and parameter files version"):
 				entry = line.lstrip().split()
-				strver = entry[6]
+				strver = entry[10]
 				print("--Version of CGenFF detected in ", str_filename, ":", strver)
 
 	with open(ffdoc_filename, "r") as f:
